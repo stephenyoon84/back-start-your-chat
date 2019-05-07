@@ -1,5 +1,5 @@
 class Api::V1::RoomMessagesController < ApplicationController
-  before_action :authenticated
+  # before_action :authenticated
   def index
     @room_messages = RoomMessage.all
     render json: @room_messages
@@ -9,13 +9,15 @@ class Api::V1::RoomMessagesController < ApplicationController
     room_id = msg_params[:room_id]
     user_id = current_user.id
     text = msg_params[:message]
+    room = Room.find(room_id)
     if text != ""
-      room_message = RoomMessage.create(room_id: room_id, user_id: user_id, message: text)
-      json = room_message
-    else
-      json = {errors: "something went wrong.", success: false}
+      room_message = RoomMessage.new(room_id: room_id, user_id: user_id, message: text)
+      if room_message.save
+        serialized_data = ActiveModelSerializers::Adapter::Json.new(RoomMessageSerializer.new(room_message)).serializable_hash
+        ActionCable.server.broadcast('room_messages_channel', serialized_data)
+        head :ok
+      end
     end
-    render json: json
   end
 
   private
